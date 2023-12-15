@@ -13,11 +13,11 @@ const account = conflux.wallet.addPrivateKey(walletConfig.pk);
 let timer = 0;
 let latstUsedTime = mintConfig.timepermint;
 
-function handleTime(usedTime) {
-  if (usedTime < latstUsedTime) {
-    offsetGas(-2, `usedTime: ${usedTime}`);
+function handleTime(time) {
+  if (time < latstUsedTime) {
+    offsetGas(-2, `usedTime: ${time}`);
   } else {
-    offsetGas(2, `usedTime: ${usedTime}`);
+    offsetGas(2, `usedTime: ${time}`);
   }
 }
 
@@ -74,9 +74,9 @@ async function mint(acc) {
     .executed();
 
   const endTime = Date.now();
-  const usedTime = endTime - startTime;
+  const timeUsed = endTime - startTime;
 
-  handleTime(usedTime);
+  handleTime(timeUsed);
 
   return true;
 }
