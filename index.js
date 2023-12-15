@@ -2,7 +2,6 @@ const { Conflux, Drip } = require("js-conflux-sdk");
 const walletConfig = require("./wallet.json");
 const mintConfig = require("./config.json");
 
-// NOTE: 填写 RPC url，可以去 https://unifra.io 申请
 const rpcURL = mintConfig.rpcurl;
 const conflux = new Conflux({
   url: rpcURL,
