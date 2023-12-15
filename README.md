@@ -5,6 +5,7 @@ yarn
 
 ## 配置钱包，自行填写私钥
 cp wallet.default.json wallet.json
+cp config.default.json config.json
 
 ## 申请 rpc url: unifra.io
 
@@ -13,12 +14,13 @@ node index.js
 ```
 
 ## 配置
-```js
-// index.js 中配置频率与 gas
-
-// 频率, 25 秒左右一个
-let latstUsedTime = 25 * 1000;
-
-// gas 价格, 默认为 45 g
-let autoGasPrice = 45000000000n;
+```json
+{
+  // 期望 30 秒 mint 一张
+  "timepermint": 30000,
+  // 90 Gdrips
+  "gasPrice": 90,
+  // rpc
+  "rpcurl": "https://cfx-core.unifra.io/v1/{apiKey}"
+}
 ```

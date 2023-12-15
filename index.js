@@ -1,8 +1,9 @@
-const { Conflux } = require("js-conflux-sdk");
+const { Conflux, Drip } = require("js-conflux-sdk");
 const walletConfig = require("./wallet.json");
+const mintConfig = require("./config.json");
 
 // NOTE: 填写 RPC url，可以去 https://unifra.io 申请
-const rpcURL = "https://cfx-core.unifra.io/v1/{apiKey}"
+const rpcURL = mintConfig.rpcurl;
 const conflux = new Conflux({
   url: rpcURL,
   networkId: 1029,
@@ -10,45 +11,102 @@ const conflux = new Conflux({
 const crossSpaceCall = conflux.InternalContract("CrossSpaceCall");
 const account = conflux.wallet.addPrivateKey(walletConfig.pk);
 
-let latstUsedTime = 25 * 1000;
-let autoGasPrice = 45000000000n;
+let timer = 0;
+let latstUsedTime = mintConfig.timepermint;
+
+function handleTime(usedTime) {
+  if (usedTime < latstUsedTime) {
+    offsetGas(-2, `usedTime: ${usedTime}`);
+  } else {
+    offsetGas(2, `usedTime: ${usedTime}`);
+  }
+}
+
+let gasPrice = Drip.fromGDrip(mintConfig.gasPrice);
+
+function offsetGas(offset, cause) {
+  gasPrice = Drip.fromGDrip(Number(gasPrice.toGDrip()) + offset);
+  console.log(`update gasPrice to ${gasPrice.toGDrip()}, cause: ${cause}`);
+}
+
+async function doWork(acc) {
+  if (Number(gasPrice.toGDrip()) > mintConfig.maxGasPrice) {
+    await sleep(10 * 1000);
+    offsetGas(-5);
+
+    return false;
+  }
+
+  return Promise.race([mint(acc), timeout(mintConfig.timeout)]);
+}
+
+function timeout(ms) {
+  clearInterval(timer);
+  const start = Date.now();
+
+  return new Promise((resolve) => {
+    timer = setInterval(() => {
+      const end = Date.now();
+      if (end - start >= ms) {
+        clearInterval(timer);
+        console.log("timeout: ", ms);
+        resolve(false);
+      }
+    });
+  });
+}
+
 async function mint(acc) {
   const nonce = await conflux.getNextNonce(acc.address);
-  console.log("nonce: ", nonce);
-  console.log("autoGasPrice: ", autoGasPrice / 1000000000n);
+  console.log(
+    `nonce: ${nonce}, gas: ${gasPrice.toGDrip()}, maxGas: ${
+      mintConfig.maxGasPrice
+    }`
+  );
   const startTime = Date.now();
-  const receipt = await crossSpaceCall
+  await crossSpaceCall
     .transferEVM("0xc6e865c213c89ca42a622c5572d19f00d84d7a16")
     .sendTransaction({
       from: acc.address,
       value: 0,
-      gasPrice: autoGasPrice,
+      gasPrice: gasPrice,
       nonce,
     })
     .executed();
+
   const endTime = Date.now();
   const usedTime = endTime - startTime;
-  console.log("usedTime: ", usedTime);
-  if (usedTime < latstUsedTime) {
-    autoGasPrice = autoGasPrice - 2000000000n;
-    console.log("减少 2 Gas");
-  } else {
-    console.log("添加 2 Gas");
-    autoGasPrice = autoGasPrice + 2000000000n;
-  }
+
+  handleTime(usedTime);
+
+  return true;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, ms);
+  });
 }
 
 async function start(num) {
   let minted = 0;
   while (true) {
+    clearInterval(timer);
+
     try {
       console.log("minting the ", minted, "th");
-      await mint(account);
-      minted += 1;
-      if (minted >= num) {
-        return;
+      const reuslt = await doWork(account);
+
+      if (reuslt) {
+        minted += 1;
+        if (minted >= num) {
+          return;
+        }
       }
     } catch (error) {
+      offsetGas(10);
       console.log("error", error);
     }
   }

@@ -1,0 +1,7 @@
+{
+  "timepermint": 30000,
+  "timeout": 120000,
+  "gasPrice": 90,
+  "maxGasPrice": 150,
+  "rpcurl": "https://cfx-core.unifra.io/v1/{apiKey}"
+}
