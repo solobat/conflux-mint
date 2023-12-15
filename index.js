@@ -9,15 +9,20 @@ const conflux = new Conflux({
 });
 const crossSpaceCall = conflux.InternalContract("CrossSpaceCall");
 const account = conflux.wallet.addPrivateKey(walletConfig.pk);
+const GasSteps = {
+  Small: 2,
+  Medium: 3,
+  Large: 4
+}
 
 let timer = 0;
 let latstUsedTime = mintConfig.timepermint;
 
 function handleTime(time) {
   if (time < latstUsedTime) {
-    offsetGas(-2, `usedTime: ${time}`);
+    offsetGas(-GasSteps.Small, `usedTime: ${time}`);
   } else {
-    offsetGas(2, `usedTime: ${time}`);
+    offsetGas(GasSteps.Small, `usedTime: ${time}`);
   }
 }
 
@@ -31,15 +36,20 @@ function offsetGas(offset, cause) {
 async function doWork(acc) {
   if (Number(gasPrice.toGDrip()) > mintConfig.maxGasPrice) {
     await sleep(10 * 1000);
-    offsetGas(-5);
+    offsetGas(-GasSteps.Medium, "great than max price");
 
     return false;
   }
 
-  return Promise.race([mint(acc), timeout(mintConfig.timeout)]);
+  return Promise.race([
+    mint(acc),
+    timeout(mintConfig.timeout, () => {
+      offsetGas(GasSteps.Large, "timeout");
+    }),
+  ]);
 }
 
-function timeout(ms) {
+function timeout(ms, callback) {
   clearInterval(timer);
   const start = Date.now();
 
@@ -49,6 +59,7 @@ function timeout(ms) {
       if (end - start >= ms) {
         clearInterval(timer);
         console.log("timeout: ", ms);
+        callback && callback();
         resolve(false);
       }
     });
@@ -105,7 +116,7 @@ async function start(num) {
         }
       }
     } catch (error) {
-      offsetGas(10);
+      offsetGas(GasSteps.Small, "nonce error or timeout");
       console.log("error", error);
     }
   }
