@@ -122,4 +122,4 @@ async function start(num) {
   }
 }
 
-start(100);
+start(3000);
